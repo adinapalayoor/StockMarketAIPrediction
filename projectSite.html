@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS539: Predicting Stock Market Trends Using News Sentiment Analysis</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="title-block">
+            <h1>Predicting Stock Market Trends Using News Sentiment Analysis</h1>
+            <h4>CS539 Group Project</h4>
+            <h4>Vagmi Bhagavathula, Jared Chan, Deepti Gosukonda, Adina Palayoor, Bishoy Soliman-Hanna</h4>
+        </div>
+
+        <h2>Project Motivation</h2>
+        <p>We wanted to determine if we could use a combination of past stock data with the overall sentiment in the news for a company to determine whether the company's stock will increase or decrease. This will help investors observe how the news may impact the performance of a particular company's stock.</p>
+
+        <h2>Data</h2>
+        <h3>Stock Data</h3>
+        <p>We fetch the last 2 years (2022-01-03 to 2023-12-29) of stock data specifically for APPLE, NVIDIA, and META. Yahoo Finance is used to retrieve stock data for all companies. For stock features, we use the Adjusted Close Price, Open, High, Low, Close Price, and Volume.</p>
+        <img src="stock.png" alt="Stock Data example" class="stock-img">
+        
+        <h3>News Data</h3>
+        <p>For gathering the news data, we used Google News to query relevant articles from the Google News database. We use both the stock ticker name and the full name of each company as search words. Since NewsAPI is limited and can only provide brief sentences from the articles, we manually webscrape the data by querying the links instead and using BeautifulSoup + URLLib3 to parse the html into text. For parsing only relevant information within each article, we grab text from only html paragraph and title elements in the webpage data.</p>
+
+        <h3>Sentiment Data</h3>
+        <p>To obtain the sentiment for each article for a single company, we feed the scraped content (including the title) of each article into a sentiment analysis model. For the model, we use a distilled version of <a href="https://huggingface.co/mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis">RoBERTa-base-model</a> pretrained on the <a href="https://huggingface.co/datasets/financial_phrasebank">financial_phrasebank</a> dataset. Pretraining on financial phrases will improve the ability of the sentiment model to capture valuable information from words within the financial vernacular. Furthermore, financial words will have more weight in the final sentiment analysis.</p>
+
+        <h3>Link to Data</h3>
+        <p>All data csvs can be found <a href="https://github.com/vagmi20/CS539-Group-Project---Predicting-Stock-Market-Trends/tree/main/data">here</a>.</p>
+
+        <h2>Tools and Methods</h2>
+
+
+        <p>Additionally, there are some technologies utilized that supported our work in this project:</p>
+<ul>
+    <li><img src="Yahoo.png" alt="Yahoo Finance Logo" class="tech-logo"> Yahoo Finance API: used to gather stock data for the three companies</li>
+    <li><img src="gNews.png" alt="Google News Logo" class="tech-logo"> Google News API: used to retrieve the news data for a particular company</li>
+    <li><img src="hFace.png" alt="Hugging Face Logo" class="tech-logo"> Hugging Face: used to obtain the sentiment scores for the news data</li>
+    <li><img src="urllib3.png" alt="urllib3 Logo" class="tech-logo"> urllib3: used to request webpage data</li>
+    <li><img src="bs4.png" alt="BeautifulSoup Logo" class="tech-logo"> BeautifulSoup: used to parse webpage html into plaintext</li>
+</ul>
+
+
+        <h2>Running the Code</h2>
+        <ul>
+        <li>
+          <a href="https://github.com/vagmi20/CS539-Group-Project---Predicting-Stock-Market-Trends">Github for Project</a></li>
+        <li> <a href="https://github.com/vagmi20/CS539-Group-Project---Predicting-Stock-Market-Trends/blob/main/README.md">READ ME</a>
+       
+      </li>
+      </ul>
+    
+    
+        <h3>Feature Engineering</h3>
+        <p>We combine our 7 stock features mentioned in the Stock Data section with 6 crafted sentiment features. Since we gather ~3-10 articles per day, we consolidate sentiment from all articles via averaging their sentiment class probabilities and tallying their argmax classes. For our 6 sentiment features, we use the number of articles and the mean probability by sentiment class (negative, neutral, positive). Note that because stock data is not available for all days in the past 2 years (due to days where market was closed), sentiment for certain days are removed. This allows perfect joins over the data tables to occur. Our list of final features is as follows:</p>
+        <style>
+          ul {
+              list-style-type: disc; 
+              padding-left: 20px; 
+          }
+        </style>
+        <ul>
+          <li>Adjusted Close</li>
+          <li>Close</li>
+          <li>High</li>
+          <li>Low</li>
+          <li>Open</li>
+          <li>Volume</li>
+          <li>Mean Negative Sentiment Probability</li>
+          <li>Mean Neutral Sentiment Probability</li>
+          <li>Mean Positive Sentiment Probability</li>
+          <li>Count of Articles with Negative Sentiment</li>
+          <li>Count of Articles with Neutral Sentiment</li>
+          <li>Count of Articles with Positive Sentiment</li>
+      </ul>
+      
+        </p> To generate target labels for our data, we compare the next day's adjusted close price to prior day's price and assign label of 1 (Uptrend) if it's greater; else 0 (Downtrend).</p>
+
+        <h3>Training and Inference</h3>
+        <p>We preprocess our data for training by standardizing features via removal of the mean and scaling to unit variance. For performing the train-test split, it's important to note that using SKLearn's built-in function is not advisable because it randomly splits the data. Due to the time-series aspect of the data, the train-test split is done sequentially by using the last 97 days (~20% of data) of stock data as the test. The first 391 days are used for training. After performing the train-test split, we get 198 samples for the Uptrend class and 193 samples for the Downtrend class. The overall train set is quite balanced. The testing set consists of 56 Uptrend and 41 Downtrend samples.</p>
+
+        <h2>Results</h2>
+        <p>We ran 8 machine learning models to determine which one was able to predict if a company was going to have an upward or downward trend in their stocks with the best accuracy. The accuracies for these models change based on the company we are looking at. Below we give a preview of the accuracy metrics as well as the confusion matrix specifically for NVIDIA.</p>
+
+        <h3>Random Forest</h3>
+<div class="model-results">
+  <img src="RFResults.png" alt="RandomForest Results" class="results-img">
+  <img src="RFConf.png" alt="RandomForest Confusion Matrix" class="matrix-img">
+</div>
+        <h3>AdaBoost</h3>
+        <div class="model-results">
+            <img src="AdaBoostResults.png" alt="AdaBoost Results" class="results-img">
+            <img src="AdaBoostConf.png" alt="AdaBoostConf Confusion Matrix" class="matrix-img">
+          </div>
+        <h3>Gradient Boosting</h3>
+        <div class="model-results">
+            <img src="GradientResults.png" alt="Gradient Results" class="results-img">
+            <img src="GradientConf.png" alt="Gradient Confusion Matrix" class="matrix-img">
+          </div>
+        <h3>Logistic Regression</h3>
+        <div class="model-results">
+            <img src="LogisticResults.png" alt="Logistic Results" class="results-img">
+            <img src="LogisticConf.png" alt="Logistic Confusion Matrix" class="matrix-img">
+          </div>
+        <h3>GaussianNB</h3>
+        <div class="model-results">
+            <img src="GaussianResults.png" alt="GaussianResults" class="results-img">
+            <img src="GaussianConf.png" alt="Gaussian Confusion Matrix" class="matrix-img">
+          </div>
+        <h3>SVM</h3>
+        <div class="model-results">
+            <img src="SVMResults.png" alt="SVM Results" class="results-img">
+            <img src="SVMConf.png" alt="SVM Confusion Matrix" class="matrix-img">
+          </div>
+        <h3>Decision Tree</h3>
+        <div class="model-results">
+            <img src="DTResults.png" alt="Decision Tree Results" class="results-img">
+            <img src="DTConf.png" alt="Decision Tree Confusion Matrix" class="matrix-img">
+          </div>
+        <h3>Neural Network</h3>
+        <div class="model-results">
+          <img src="NNresults.png" alt="Neural Network Results" class="results-img">
+          <img src="NNConf.png" alt="Neural Network Confusion Matrix" class="matrix-img">
+        </div>
+        <p>Overall architecture of the Deep Learning Neural Network:</p>
+        <p>The architecture of this neural network consists of seven fully connected layers, with neuron counts decreasing from 2048 to 2. Each hidden layer incorporates batch normalization to stabilize learning, a ReLU activation function for non-linearity, and dropout with rates decreasing from 0.5 to 0.1 to prevent overfitting. The network employs weight decay as part of its regularization strategy to limit weight sizes and uses the Adam optimizer with an initial learning rate of 0.001. A ReduceLROnPlateau learning rate scheduler adjusts the learning rate based on validation performance to optimize training of the model.</p>
+        <img src="NNArch.png" alt="Neural Network Archeticure" class="nn-img">
+        <h2>Overview of Models</h2>
+        <p>The effectiveness of each model varies by company, but is influenced by the distinct characteristics of their stock and news data. Here is an overview of the accuracy of the models tested on each company.</p>
+        <div class="image-container">
+<img src="NVDAGraph.png" alt="NVIDIA Model Overview" class="overview-img-nvidia">
+<img src="MetaGraph.png" alt="META Model Overview" class="overview-img-meta">
+<img src="AppleGraph.png" alt="APPLE Model Overview" class="overview-img-apple">
+</div>
+<table class="model-overview-table">
+  <thead>
+  <tr>
+      <th>Model</th>
+      <th>Accuracy NVIDIA</th>
+      <th>Accuracy META</th>
+      <th>Accuracy APPLE</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+      <th>Random Forest</th>
+      <td>0.435</td>
+      <td>0.490</td>
+      <td>0.557</td>
+  </tr>
+  <tr>
+      <th>AdaBoost</th>
+      <td>0.478</td>
+      <td>0.449</td>
+      <td>0.505</td>
+  </tr>
+  <tr>
+      <th>Gradient Boosting</th>
+      <td>0.424</td>
+      <td>0.449</td>
+      <td>0.526</td>
+  </tr>
+  <tr>
+      <th>Logistic Regression</th>
+      <td>0.446</td>
+      <td>0.459</td>
+      <td>0.454</td>
+  </tr>
+  <tr>
+      <th>GaussianNB</th>
+      <td>0.413</td>
+      <td>0.459</td>
+      <td>0.433</td>
+  </tr>
+  <tr>
+      <th>SVM</th>
+      <td class="highlight">0.576</td>
+      <td class="highlight">0.531</td>
+      <td>0.433</td>
+  </tr>
+  <tr>
+      <th>Decision Tree</th>
+      <td>0.467</td>
+      <td>0.469</td>
+      <td>0.608</td>
+  </tr>
+  <tr>
+      <th>Neural Network</th>
+      <td>0.435</td>
+      <td>0.469</td>
+      <td class="highlight">0.629</td>
+  </tr>
+</tbody>
+</table>
+
+
+        
+
+        <h2>Effect of Sentiment Features</h2>
+        <p>We perform a small experiment with the Decision Tree classifier to understand how much the sentiment features make a difference when predicting stock trends. We perform prediction on the test data with and without sentiment features for comparison.</p>
+        <h3>Without Sentiment Features</h3>
+        <div class="no-sentiment-results">
+            <img src="nosent.png" alt="nosent Results" class="no-sent-results-img">
+            <img src="nosent_cft.png" alt="nosent Confusion Matrix" class="no-sent-matrix-img">
+        </div>
+        <h3>With Sentiment Features</h3>
+        <div class="sentiment-results">
+            <img src="sent.png" alt="sent Results" class="sent-results-img">
+            <img src="sent_cft.png" alt="sent Confusion Matrix" class="sent-matrix-img">
+        </div>
+        <p>We find that sentiment does signifcantly improve stock trend prediction and improves accuracy by ~9%. The Decision Tree model trained without sentiment features seems to gain heavy bias towards predicting the Downtrend class while the model with sentiment features has less overall bias.</p>
+        <h2>Conclusions and Future Work</h2>
+        <p>Based on our results from these models tested on three different companies, we determined that the SVM classifier and the Neural Network are the most accurate at being able to determine if a stock is likely to have an upward or downward trend. In the future, to improve these models, we should include more news data as well as account for bias in the articles. Although we only tested these models for three companies, we could expand the scope and look into other companies as well to get a more comprehensive overview of how stock data is changing over time and in the future.</p>
+    </div>
+</body>
+</html>
